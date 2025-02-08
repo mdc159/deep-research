@@ -1,27 +1,44 @@
-import { createOpenAI } from '@ai-sdk/openai';
+import OpenAI from 'openai';
 import { getEncoding } from 'js-tiktoken';
-
 import { RecursiveCharacterTextSplitter } from './text-splitter';
 
-// Providers
-
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_KEY!,
+// Create OpenAI instance using OpenRouter configuration
+const openai = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY!,
+  defaultHeaders: {
+    'HTTP-Referer': 'https://github.com/yourusername/deep-research',
+    'X-Title': 'Deep Research',
+  },
 });
 
-// Models
+// Helper to wrap model and override 'provider' property using a Proxy
+function wrapModel<T extends object>(model: T, providerName: string): T {
+  const provider = { name: providerName };
+  // Create an extended model with the required properties
+  const extendedModel = Object.assign({}, model, {
+    specificationVersion: 'v1',
+    modelId: 'openai/o1-mini',
+    defaultObjectGenerationMode: 'object'
+  });
+  return new Proxy(extendedModel, {
+    get(target: any, prop: string, receiver: any) {
+      if (prop === 'provider' || prop === '_provider') {
+        return provider;
+      }
+      if (prop === 'id') {
+        return providerName;
+      }
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
 
-export const gpt4Model = openai('gpt-4o', {
-  structuredOutputs: true,
-});
-export const gpt4MiniModel = openai('gpt-4o-mini', {
-  structuredOutputs: true,
-});
-export const o3MiniModel = openai('o3-mini', {
-  reasoningEffort: 'medium',
-  structuredOutputs: true,
-});
+// Export the wrapped OpenAI instance
+export const o1MiniModel = wrapModel(openai, 'openrouter');
 
+// Utility functions
 const MinChunkSize = 140;
 const encoder = getEncoding('o200k_base');
 
@@ -37,7 +54,6 @@ export function trimPrompt(prompt: string, contextSize = 120_000) {
   }
 
   const overflowTokens = length - contextSize;
-  // on average it's 3 characters per token, so multiply by 3 to get a rough estimate of the number of characters
   const chunkSize = prompt.length - overflowTokens * 3;
   if (chunkSize < MinChunkSize) {
     return prompt.slice(0, MinChunkSize);
@@ -49,11 +65,9 @@ export function trimPrompt(prompt: string, contextSize = 120_000) {
   });
   const trimmedPrompt = splitter.splitText(prompt)[0] ?? '';
 
-  // last catch, there's a chance that the trimmed prompt is same length as the original prompt, due to how tokens are split & innerworkings of the splitter, handle this case by just doing a hard cut
   if (trimmedPrompt.length === prompt.length) {
     return trimPrompt(prompt.slice(0, chunkSize), contextSize);
   }
 
-  // recursively trim until the prompt is within the context size
   return trimPrompt(trimmedPrompt, contextSize);
 }

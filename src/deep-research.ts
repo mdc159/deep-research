@@ -1,11 +1,23 @@
 import FirecrawlApp, { SearchResponse } from '@mendable/firecrawl-js';
-import { generateObject } from 'ai';
+import OpenAI from 'openai';
 import { compact } from 'lodash-es';
 import pLimit from 'p-limit';
 import { z } from 'zod';
 
-import { o3MiniModel, trimPrompt } from './ai/providers';
+import { o1MiniModel, trimPrompt } from './ai/providers';
 import { systemPrompt } from './prompt';
+
+// Define schemas
+const QueriesSchema = z.object({
+  queries: z.array(z.object({
+    query: z.string(),
+    researchGoal: z.string()
+  }))
+});
+
+const ReportSchema = z.object({
+  reportMarkdown: z.string()
+});
 
 type ResearchResult = {
   learnings: string[];
@@ -16,13 +28,11 @@ type ResearchResult = {
 const ConcurrencyLimit = 2;
 
 // Initialize Firecrawl with optional API key and optional base url
-
 const firecrawl = new FirecrawlApp({
   apiKey: process.env.FIRECRAWL_KEY ?? '',
   apiUrl: process.env.FIRECRAWL_BASE_URL,
 });
 
-// take en user query, return a list of SERP queries
 async function generateSerpQueries({
   query,
   numQueries = 3,
@@ -30,41 +40,51 @@ async function generateSerpQueries({
 }: {
   query: string;
   numQueries?: number;
-
-  // optional, if provided, the research will continue from the last learning
   learnings?: string[];
 }) {
-  const res = await generateObject({
-    model: o3MiniModel,
-    system: systemPrompt(),
-    prompt: `Given the following prompt from the user, generate a list of SERP queries to research the topic. Return a maximum of ${numQueries} queries, but feel free to return less if the original prompt is clear. Make sure each query is unique and not similar to each other: <prompt>${query}</prompt>\n\n${
-      learnings
-        ? `Here are some learnings from previous research, use them to generate more specific queries: ${learnings.join(
-            '\n',
-          )}`
-        : ''
-    }`,
-    schema: z.object({
-      queries: z
-        .array(
-          z.object({
-            query: z.string().describe('The SERP query'),
-            researchGoal: z
-              .string()
-              .describe(
-                'First talk about the goal of the research that this query is meant to accomplish, then go deeper into how to advance the research once the results are found, mention additional research directions. Be as specific as possible, especially for additional research directions.',
-              ),
-          }),
-        )
-        .describe(`List of SERP queries, max of ${numQueries}`),
-    }),
-  });
-  console.log(
-    `Created ${res.object.queries.length} queries`,
-    res.object.queries,
-  );
+  console.log('Generating SERP queries...');
+  try {
+    const openai = o1MiniModel as unknown as OpenAI;
+    
+    const completion = await openai.chat.completions.create({
+      model: 'anthropic/claude-3-opus-20240229',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a research assistant helping to generate search queries. Format your response as a JSON object with a "queries" array containing objects with "query" and "researchGoal" properties.`
+        },
+        {
+          role: 'user',
+          content: `Generate ${numQueries} search queries to research this topic: ${query}${
+            learnings ? `\nUse these previous learnings to generate more specific queries:\n${learnings.join('\n')}` : ''
+          }`
+        }
+      ],
+      response_format: { type: 'json_object' }
+    });
 
-  return res.object.queries.slice(0, numQueries);
+    console.log('Raw response:', completion);
+    console.log('Message content:', completion.choices[0]?.message?.content);
+    
+    try {
+      const jsonResponse = JSON.parse(completion.choices[0]?.message?.content ?? '{}');
+      console.log('Parsed JSON:', JSON.stringify(jsonResponse, null, 2));
+      
+      const validated = QueriesSchema.parse(jsonResponse);
+      console.log('Validated response:', JSON.stringify(validated, null, 2));
+      
+      return validated.queries.slice(0, numQueries);
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      if (parseError instanceof SyntaxError) {
+        console.error('JSON parsing error. Raw content:', completion.choices[0]?.message?.content);
+      }
+      throw parseError;
+    }
+  } catch (error) {
+    console.error('Error generating SERP queries:', error);
+    throw error;
+  }
 }
 
 async function processSerpResult({
@@ -78,35 +98,70 @@ async function processSerpResult({
   numLearnings?: number;
   numFollowUpQuestions?: number;
 }) {
-  const contents = compact(result.data.map(item => item.markdown)).map(
-    content => trimPrompt(content, 25_000),
-  );
-  console.log(`Ran ${query}, found ${contents.length} contents`);
+  console.log('Processing SERP results...');
+  try {
+    const contents = compact(result.data.map(item => item.markdown)).map(
+      content => trimPrompt(content, 25_000),
+    );
+    console.log(`Found ${contents.length} contents`);
 
-  const res = await generateObject({
-    model: o3MiniModel,
-    abortSignal: AbortSignal.timeout(60_000),
-    system: systemPrompt(),
-    prompt: `Given the following contents from a SERP search for the query <query>${query}</query>, generate a list of learnings from the contents. Return a maximum of ${numLearnings} learnings, but feel free to return less if the contents are clear. Make sure each learning is unique and not similar to each other. The learnings should be concise and to the point, as detailed and infromation dense as possible. Make sure to include any entities like people, places, companies, products, things, etc in the learnings, as well as any exact metrics, numbers, or dates. The learnings will be used to research the topic further.\n\n<contents>${contents
-      .map(content => `<content>\n${content}\n</content>`)
-      .join('\n')}</contents>`,
-    schema: z.object({
-      learnings: z
-        .array(z.string())
-        .describe(`List of learnings, max of ${numLearnings}`),
-      followUpQuestions: z
-        .array(z.string())
-        .describe(
-          `List of follow-up questions to research the topic further, max of ${numFollowUpQuestions}`,
-        ),
-    }),
-  });
-  console.log(
-    `Created ${res.object.learnings.length} learnings`,
-    res.object.learnings,
-  );
+    const openai = o1MiniModel as unknown as OpenAI;
+    
+    const completion = await openai.chat.completions.create({
+      model: 'anthropic/claude-3-opus-20240229',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a research assistant that ONLY responds with valid JSON objects. Never include any explanatory text before or after the JSON. Your response must be parseable by JSON.parse().
 
-  return res.object;
+Format your response as a JSON object with "learnings" and "followUpQuestions" arrays.`
+        },
+        {
+          role: 'user',
+          content: `Analyze these search results and return ONLY a JSON object containing ${numLearnings} key learnings and ${numFollowUpQuestions} follow-up questions about: "${query}"\n\n${contents.map(content => `<content>\n${content}\n</content>`).join('\n')}`
+        }
+      ],
+      response_format: { type: 'json_object' }
+    });
+
+    console.log('Raw response:', completion);
+    
+    if (!completion.choices?.[0]?.message?.content) {
+      console.error('Invalid response format from OpenRouter:', completion);
+      return {
+        learnings: [],
+        followUpQuestions: []
+      };
+    }
+
+    try {
+      const jsonResponse = JSON.parse(completion.choices[0].message.content);
+      console.log('Parsed JSON:', JSON.stringify(jsonResponse, null, 2));
+      
+      const validated = z.object({
+        learnings: z.array(z.string()),
+        followUpQuestions: z.array(z.string())
+      }).parse(jsonResponse);
+      
+      console.log('Validated response:', JSON.stringify(validated, null, 2));
+      return validated;
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      if (parseError instanceof SyntaxError) {
+        console.error('JSON parsing error. Raw content:', completion.choices[0].message.content);
+      }
+      return {
+        learnings: [],
+        followUpQuestions: []
+      };
+    }
+  } catch (error) {
+    console.error('Error processing SERP results:', error);
+    return {
+      learnings: [],
+      followUpQuestions: []
+    };
+  }
 }
 
 export async function writeFinalReport({
@@ -118,27 +173,66 @@ export async function writeFinalReport({
   learnings: string[];
   visitedUrls: string[];
 }) {
-  const learningsString = trimPrompt(
-    learnings
-      .map(learning => `<learning>\n${learning}\n</learning>`)
-      .join('\n'),
-    150_000,
-  );
+  console.log('Generating final report...');
+  try {
+    const learningsString = trimPrompt(
+      learnings
+        .map(learning => `<learning>\n${learning}\n</learning>`)
+        .join('\n'),
+      150_000,
+    );
 
-  const res = await generateObject({
-    model: o3MiniModel,
-    system: systemPrompt(),
-    prompt: `Given the following prompt from the user, write a final report on the topic using the learnings from research. Make it as as detailed as possible, aim for 3 or more pages, include ALL the learnings from research:\n\n<prompt>${prompt}</prompt>\n\nHere are all the learnings from previous research:\n\n<learnings>\n${learningsString}\n</learnings>`,
-    schema: z.object({
-      reportMarkdown: z
-        .string()
-        .describe('Final report on the topic in Markdown'),
-    }),
-  });
+    const openai = o1MiniModel as unknown as OpenAI;
+    
+    const completion = await openai.chat.completions.create({
+      model: 'anthropic/claude-3-opus-20240229',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a research assistant that ONLY responds with valid JSON objects. Never include any explanatory text before or after the JSON. Your response must be parseable by JSON.parse().
 
-  // Append the visited URLs section to the report
-  const urlsSection = `\n\n## Sources\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`;
-  return res.object.reportMarkdown + urlsSection;
+Format your response as a JSON object with a "reportMarkdown" property containing the markdown-formatted report.`
+        },
+        {
+          role: 'user',
+          content: `Write a detailed report (3+ pages) and return it as a JSON object with a single "reportMarkdown" property containing the markdown text.
+
+Topic: ${prompt}
+
+Research findings:
+${learningsString}`
+        }
+      ],
+      response_format: { type: 'json_object' }
+    });
+
+    console.log('Raw response:', completion);
+    
+    if (!completion.choices?.[0]?.message?.content) {
+      console.error('Invalid response format from OpenRouter:', completion);
+      return '';
+    }
+
+    try {
+      const jsonResponse = JSON.parse(completion.choices[0].message.content);
+      console.log('Parsed JSON:', JSON.stringify(jsonResponse, null, 2));
+      
+      const validated = ReportSchema.parse(jsonResponse);
+      console.log('Validated response:', JSON.stringify(validated, null, 2));
+      
+      const urlsSection = `\n\n## Sources\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`;
+      return validated.reportMarkdown + urlsSection;
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      if (parseError instanceof SyntaxError) {
+        console.error('JSON parsing error. Raw content:', completion.choices[0].message.content);
+      }
+      return '';
+    }
+  } catch (error) {
+    console.error('Error generating final report:', error);
+    return '';
+  }
 }
 
 export async function deepResearch({
@@ -154,72 +248,85 @@ export async function deepResearch({
   learnings?: string[];
   visitedUrls?: string[];
 }): Promise<ResearchResult> {
-  const serpQueries = await generateSerpQueries({
-    query,
-    learnings,
-    numQueries: breadth,
-  });
-  const limit = pLimit(ConcurrencyLimit);
+  try {
+    console.log('Generating SERP queries...');
+    const serpQueries = await generateSerpQueries({
+      query,
+      numQueries: breadth,
+      learnings,
+    });
+    
+    const limit = pLimit(ConcurrencyLimit);
+    console.log('Processing queries:', serpQueries);
 
-  const results = await Promise.all(
-    serpQueries.map(serpQuery =>
-      limit(async () => {
-        try {
-          const result = await firecrawl.search(serpQuery.query, {
-            timeout: 15000,
-            limit: 5,
-            scrapeOptions: { formats: ['markdown'] },
-          });
-
-          // Collect URLs from this search
-          const newUrls = compact(result.data.map(item => item.url));
-          const newBreadth = Math.ceil(breadth / 2);
-          const newDepth = depth - 1;
-
-          const newLearnings = await processSerpResult({
-            query: serpQuery.query,
-            result,
-            numFollowUpQuestions: newBreadth,
-          });
-          const allLearnings = [...learnings, ...newLearnings.learnings];
-          const allUrls = [...visitedUrls, ...newUrls];
-
-          if (newDepth > 0) {
-            console.log(
-              `Researching deeper, breadth: ${newBreadth}, depth: ${newDepth}`,
-            );
-
-            const nextQuery = `
-            Previous research goal: ${serpQuery.researchGoal}
-            Follow-up research directions: ${newLearnings.followUpQuestions.map(q => `\n${q}`).join('')}
-          `.trim();
-
-            return deepResearch({
-              query: nextQuery,
-              breadth: newBreadth,
-              depth: newDepth,
-              learnings: allLearnings,
-              visitedUrls: allUrls,
+    const results = await Promise.all(
+      serpQueries.map(serpQuery =>
+        limit(async () => {
+          try {
+            console.log('Searching for:', serpQuery.query);
+            const result = await firecrawl.search(serpQuery.query, {
+              timeout: 15000,
+              limit: 5,
+              scrapeOptions: { formats: ['markdown'] },
             });
-          } else {
+
+            // Collect URLs from this search
+            const newUrls = compact(result.data.map(item => item.url));
+            const newBreadth = Math.ceil(breadth / 2);
+            const newDepth = depth - 1;
+
+            console.log('Processing search results...');
+            const processedResults = await processSerpResult({
+              query: serpQuery.query,
+              result,
+              numLearnings: 3,
+              numFollowUpQuestions: newBreadth,
+            });
+
+            const allLearnings = [...learnings, ...processedResults.learnings];
+            const allUrls = [...visitedUrls, ...newUrls];
+
+            if (newDepth > 0) {
+              console.log(
+                `Researching deeper, breadth: ${newBreadth}, depth: ${newDepth}`,
+              );
+
+              const nextQuery = `
+                Previous research goal: ${serpQuery.researchGoal}
+                Follow-up questions: ${processedResults.followUpQuestions.join('\n')}
+              `.trim();
+
+              return deepResearch({
+                query: nextQuery,
+                breadth: newBreadth,
+                depth: newDepth,
+                learnings: allLearnings,
+                visitedUrls: allUrls,
+              });
+            } else {
+              return {
+                learnings: allLearnings,
+                visitedUrls: allUrls,
+              };
+            }
+          } catch (error) {
+            console.error(`Error processing query "${serpQuery.query}":`, error);
             return {
-              learnings: allLearnings,
-              visitedUrls: allUrls,
+              learnings: [],
+              visitedUrls: [],
             };
           }
-        } catch (e) {
-          console.error(`Error running query: ${serpQuery.query}: `, e);
-          return {
-            learnings: [],
-            visitedUrls: [],
-          };
-        }
-      }),
-    ),
-  );
+        }),
+      ),
+    );
 
-  return {
-    learnings: [...new Set(results.flatMap(r => r.learnings))],
-    visitedUrls: [...new Set(results.flatMap(r => r.visitedUrls))],
-  };
+    // Combine all results
+    return {
+      learnings: [...new Set(results.flatMap(r => r.learnings))],
+      visitedUrls: [...new Set(results.flatMap(r => r.visitedUrls))],
+    };
+  } catch (error) {
+    console.error('Error in deep research:', error);
+    throw error;
+  }
 }

@@ -166,29 +166,27 @@ This comprehensive analysis, rooted in extensive benchmarking and technical eval
 
 *Note: Some projections and speculations in this report are based on emerging trends and early benchmarking data. Continued monitoring of real-world performance and driver updates is recommended for an ongoing evaluation.*
 
-
 # End of Report
-
 
 ## Sources
 
-- https://www.tomshardware.com/reviews/gpu-hierarchy,4388.html
-- https://linustechtips.com/topic/1596724-my-personally-recommended-gpu-from-rtx-5000-series/
-- https://www.forbes.com/sites/moorinsights/2025/01/23/nvidia-rtx-5090-graphics-card-review---get-neural-or-get-left-behind/
-- https://www.neogaf.com/threads/nvidia-official-geforce-rtx-50-vs-rtx-40-benchmarks-15-to-33-performance-uplift-without-dlss-multi-frame-generation.1679651/
-- https://pcoutlet.com/parts/video-cards/rtx-5070-ti-vs-rtx-5080-which-gpu-reigns-supreme
-- https://www.kitguru.net/components/graphic-cards/dominic-moass/nvidia-rtx-5080-review-efficiency-gains-but-a-performance-letdown/all/1/
-- https://forums.pcgamer.com/threads/rtx-5000-series-review-discussion.147293/
-- https://www.techradar.com/computing/gpu/nvidias-new-next-gen-gpu-benchmarks-cause-concern-among-pc-gamers-particularly-with-the-rtx-5080-but-dont-panic-yet
-- https://www.vcsolutions.com/blog/nvidia-rtx-5000-series-performance-unveiled/
-- https://gamersnexus.net/gpus/nvidia-geforce-rtx-5090-founders-edition-review-benchmarks-gaming-thermals-power
-- https://www.tomshardware.com/pc-components/gpus/nvidia-geforce-rtx-5090-review
-- https://www.nvidia.com/en-us/geforce/news/rtx-50-series-graphics-cards-gpu-laptop-announcements/
-- https://pcoutlet.com/parts/video-cards/nvidia-rtx-5000-series
-- https://press.asus.com/news/press-releases/asus-nvidia-geforce-rtx-50-series-graphics-cards/
-- https://galaxy.ai/youtube-summarizer/the-challenges-facing-nvidias-rtx-5000-series-and-amds-rx-8000-cards-VHQkBdeXzT0
-- https://www.xda-developers.com/nvidia-rtx-5000-not-what-you-think/
-- https://hardwarehunt.co.uk/blogs/pc-building-maintenance/amd-vs-nvidia-the-battle-between-radeon-rx-9000-and-rtx-5000?srsltid=AfmBOorJ59FR_9WsA8ol-7k9g_jPvGbbYgFK1MzbvOwRS05HQO8JdjoZ
-- https://hardforum.com/threads/2025-nvidia-versus-amd-ati-rematch-5000-versus-9000-series-edition.2038817/
-- https://9meters.com/technology/graphics/nvidia-shows-off-geforce-rtx-5090-fe-pcb-30-phases-of-stable-575w-power
-- https://www.technology.org/2025/01/20/nvidias-rtx-5090-a-technological-leap-beyond-the-rtx-4090/
+- <https://www.tomshardware.com/reviews/gpu-hierarchy,4388.html>
+- <https://linustechtips.com/topic/1596724-my-personally-recommended-gpu-from-rtx-5000-series/>
+- <https://www.forbes.com/sites/moorinsights/2025/01/23/nvidia-rtx-5090-graphics-card-review---get-neural-or-get-left-behind/>
+- <https://www.neogaf.com/threads/nvidia-official-geforce-rtx-50-vs-rtx-40-benchmarks-15-to-33-performance-uplift-without-dlss-multi-frame-generation.1679651/>
+- <https://pcoutlet.com/parts/video-cards/rtx-5070-ti-vs-rtx-5080-which-gpu-reigns-supreme>
+- <https://www.kitguru.net/components/graphic-cards/dominic-moass/nvidia-rtx-5080-review-efficiency-gains-but-a-performance-letdown/all/1/>
+- <https://forums.pcgamer.com/threads/rtx-5000-series-review-discussion.147293/>
+- <https://www.techradar.com/computing/gpu/nvidias-new-next-gen-gpu-benchmarks-cause-concern-among-pc-gamers-particularly-with-the-rtx-5080-but-dont-panic-yet>
+- <https://www.vcsolutions.com/blog/nvidia-rtx-5000-series-performance-unveiled/>
+- <https://gamersnexus.net/gpus/nvidia-geforce-rtx-5090-founders-edition-review-benchmarks-gaming-thermals-power>
+- <https://www.tomshardware.com/pc-components/gpus/nvidia-geforce-rtx-5090-review>
+- <https://www.nvidia.com/en-us/geforce/news/rtx-50-series-graphics-cards-gpu-laptop-announcements/>
+- <https://pcoutlet.com/parts/video-cards/nvidia-rtx-5000-series>
+- <https://press.asus.com/news/press-releases/asus-nvidia-geforce-rtx-50-series-graphics-cards/>
+- <https://galaxy.ai/youtube-summarizer/the-challenges-facing-nvidias-rtx-5000-series-and-amds-rx-8000-cards-VHQkBdeXzT0>
+- <https://www.xda-developers.com/nvidia-rtx-5000-not-what-you-think/>
+- <https://hardwarehunt.co.uk/blogs/pc-building-maintenance/amd-vs-nvidia-the-battle-between-radeon-rx-9000-and-rtx-5000?srsltid=AfmBOorJ59FR_9WsA8ol-7k9g_jPvGbbYgFK1MzbvOwRS05HQO8JdjoZ>
+- <https://hardforum.com/threads/2025-nvidia-versus-amd-ati-rematch-5000-versus-9000-series-edition.2038817/>
+- <https://9meters.com/technology/graphics/nvidia-shows-off-geforce-rtx-5090-fe-pcb-30-phases-of-stable-575w-power>
+- <https://www.technology.org/2025/01/20/nvidias-rtx-5090-a-technological-leap-beyond-the-rtx-4090/>

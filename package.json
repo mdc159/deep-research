@@ -6,7 +6,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "tsx": "tsx --env-file=.env.local",
     "start": "tsx --env-file=.env.local src/run.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "tsx --env-file=.env.local src/test-openrouter.ts"
   },
   "author": "",
   "license": "ISC",
@@ -25,6 +25,7 @@
     "ai": "^4.1.17",
     "js-tiktoken": "^1.0.17",
     "lodash-es": "^4.17.21",
+    "openai": "^4.83.0",
     "p-limit": "^6.2.0",
     "zod": "^3.24.1"
   },
